@@ -21,6 +21,19 @@ const OTP_REQUIRED = process.env.OTP_REQUIRED !== '0'; // 기본 ON
 const SESSION_TTL_MS = { user: 24 * 60 * 60 * 1000, admin: 1 * 60 * 60 * 1000 };
 const ACCESS_TTL_SEC = 10 * 60;
 
+// --- ▼ 여기에 DB 연결 코드를 추가하세요 ▼ ---
+import pg from 'pg';
+
+const pool = new pg.Pool({
+  connectionString: 'postgresql://rfid_db_vdtd_user:9ih1if5ha9xmxJDYzfSWk1enCBPkZS5C@dpg-d36lhs2dbo4c73dtpds0-a/rfid_db_vdtd', // Render에서 제공하는 DB 주소
+});
+
+pool.connect((err, client, release) => {
+  if (err) return console.error('DB 연결 오류', err.stack);
+  console.log('데이터베이스에 성공적으로 연결되었습니다.');
+  client.release();
+});
+
 /* ========= 데모 저장소(실서비스: DB/Redis로 교체) ========= */
 const OTP_VERIFIED = new Map();         // `${username}:${mode}` -> true
 const REVOKED_REFRESH = new Set();      // refreshToken 블랙리스트
