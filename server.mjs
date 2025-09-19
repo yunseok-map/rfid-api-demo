@@ -52,16 +52,23 @@ const idempKeyFrom = (req) => req.get('Idempotency-Key') || req.body?.idempotenc
 
 /* ========= RFID 어댑터(Mock) — 나중에 실제 브리지 REST로 교체 ========= */
 const ASSETS = new Map([
-  ['A-001', { ownerId: 'U101', type: '노트북', lastSeenAt: new Date().toISOString() }],
-  ['A-002', { ownerId: 'U101', type: '모니터', lastSeenAt: new Date().toISOString() }]
+  ['A-001', { ownerId: 'U101', type: '노트북', spec: '15" i5/8gb/256gb', lastSeenAt: new Date().toISOString() }],
+  ['A-002', { ownerId: 'U101', type: '모니터', spec: '27" FHD', lastSeenAt: new Date().toISOString() }]
 ]);
 
 const rfidAdapter = {
-  async resolveTag(rfidRaw) {
-    if (rfidRaw === 'E2003412') return { managementNo: 'A-001', type: '노트북', lastOwner: ASSETS.get('A-001')?.ownerId };
-    if (rfidRaw === 'E2009999') return { managementNo: 'A-002', type: '모니터', lastOwner: ASSETS.get('A-002')?.ownerId };
-    return { managementNo: 'UNKNOWN', type: 'unknown', lastOwner: null };
-  },
+  // AFTER (spec 포함)
+async resolveTag(rfidRaw) {
+  if (rfidRaw === 'E2003412') {
+    const a = ASSETS.get('A-001');
+    return { managementNo: 'A-001', type: a?.type, spec: a?.spec, lastOwner: a?.ownerId };
+  }
+  if (rfidRaw === 'E2009999') {
+    const a = ASSETS.get('A-002');
+    return { managementNo: 'A-002', type: a?.type, spec: a?.spec, lastOwner: a?.ownerId };
+  }
+  return { managementNo: 'UNKNOWN', type: 'unknown', spec: undefined, lastOwner: null };
+},
   async updateOwners(mNos, assigneeUserId) {
     const results = [];
     for (const mNo of mNos) {
@@ -77,9 +84,11 @@ const rfidAdapter = {
     return { ok: mismatches.length === 0, mismatches };
   },
   async findUserAssets(userId) {
-    const list = [];
-    for (const [mNo, v] of ASSETS.entries()) if (v.ownerId === userId) list.push({ mNo, ...v });
-    return list;
+  const list = [];
+  for (const [mNo, v] of ASSETS.entries()) {
+    if (v.ownerId === userId) list.push({ mNo, type: v.type, spec: v.spec, lastSeenAt: v.lastSeenAt });
+  }
+  return list;
   }
 };
 
@@ -259,7 +268,7 @@ app.get('/admin/users/search', requireAuth, requireAdminMode, (req, res) => {
   res.json({ ok:true, data });
 });
 
-app.get('/admin/users/:userId/assets', requireAuth, requireAdminMode, async (req, res) => {
+app.get('/users/:userId/assets', requireAuth, async (req, res) => {
   const { userId } = req.params;
   const data = await rfidAdapter.findUserAssets(userId);
   res.json({ ok:true, data });
